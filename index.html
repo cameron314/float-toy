@@ -82,6 +82,14 @@
     margin: -3px;
   }
 
+  .hex {
+    display: block;
+    line-height: normal;
+    font-family: Consolas, monospace;
+    user-select: initial;
+    -webkit-user-select: initial;
+  }
+
   span.sign { background: #DDF; }
   span.exponent { background: #DFD; }
   span.fraction { background: #FDD; }
@@ -310,7 +318,8 @@
         '&nbsp;&nbsp;&times;&nbsp;&nbsp;' +
         '<span class="exponent">2<sup>' + exponent + '</sup></span>' +
         '&nbsp;&nbsp;&times;&nbsp;&nbsp;' +
-        '<span class="fraction">' + reduceNumber(fraction) + '</span>';
+        '<span class="fraction">' + reduceNumber(fraction) + '</span>' +
+        '<span class="hex">0x' + Array.prototype.map.call(bytes, function(x) { return (x >>> 4).toString(16) + (x & 0xf).toString(16); }).reverse().join('') + '</span>';
     }
 
     render();
