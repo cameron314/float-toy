@@ -83,11 +83,12 @@
   }
 
   .hex {
-    display: block;
-    line-height: normal;
-    font-family: Consolas, monospace;
-    user-select: initial;
-    -webkit-user-select: initial;
+    font-size: 20px;
+    margin: 0px;
+    margin-top: 5px;
+    font-family: Consolas, 'Courier New', monospace;
+    width: auto;
+    min-width: 0px;
   }
 
   span.sign { background: #DDF; }
@@ -112,6 +113,7 @@
     </tr>
   </table>
   <div id="help32" class="help"></div>
+  <input id="hex32" class="hex output" size="14" />
 
   <h2>64-bit (double)</h2>
   <table>
@@ -122,13 +124,22 @@
     </tr>
   </table>
   <div id="help64" class="help"></div>
+  <input id="hex64" class="hex output" size="22" />
 </body>
 <script>
 
 (function() {
 
-  function load(array, exponentBits, input, output, help) {
+  function load(array, exponentBits, input, output, hexOutput, help) {
     var bytes = new Uint8Array(array.buffer);
+
+    var littleEndian = (function() {
+      var buf = new ArrayBuffer(2);
+      var bytes = new Uint8Array(buf);
+      var word = new Uint16Array(buf);
+      word[0] = 0xaabb;
+      return bytes[0] == 0xbb;
+    })();
 
     function reduceNumber(x) {
       var copy = bytes.length === 4 ? new Float32Array(1) : new Float64Array(1);
@@ -238,11 +249,40 @@
     output.onfocus = function() {
       output.select();
     };
-    output.oninput = function() {
+    output.oninput = output.onblur = function() {
       array[0] = extractNumber();
       render();
     };
-    output.onblur = function() {
+    function extractHex() {
+      var x = '' + hexOutput.value;
+      x = x.trim();
+      x = x.replace(/^0x0*/i, '');
+      if (x.length % 2 == 1)
+        x  = '0' + x;
+      var buf = new ArrayBuffer(bytes.length);
+      var valueBytes = new Uint8Array(buf);
+      for (var i = 0; i < x.length; i += 2)
+        valueBytes[bytes.length - (x.length - i) / 2] = (parseInt(x[i], 16) << 4) | parseInt(x[i + 1], 16);
+      if (littleEndian) {
+        for (var i = 0; i != valueBytes.length / 2; ++i) {
+          var temp = valueBytes[i];
+          valueBytes[i] = valueBytes[valueBytes.length - 1 - i];
+          valueBytes[valueBytes.length - 1 - i] = temp;
+        }
+      }
+      return (bytes.length === 4 ? new Float32Array(buf) : new Float64Array(buf))[0];
+    }
+    hexOutput.onkeydown = function(e) {
+      if (e.which === 13) {
+        e.preventDefault();
+        hexOutput.blur();
+      }
+      else if (e.which === 38 || e.which === 40) {
+        e.preventDefault();
+      }
+    };
+    hexOutput.oninput = hexOutput.onblur = function() {
+      array[0] = extractHex();
       render();
     };
     input.onmousedown = function(e) {
@@ -312,21 +352,25 @@
         var value = array[0];
         output.value = reduceNumber(value === 0 && 1 / value === -Infinity ? '-0' : value);
       }
+      if (document.activeElement !== hexOutput) {
+        var digits = Array.prototype.map.call(bytes, function(x) { return (x >>> 4).toString(16) + (x & 0xf).toString(16); });
+        hexOutput.value =
+          '0x' + (littleEndian ? digits.reverse() : digits).join('');
+      }
 
       help.innerHTML =
         '<span class="sign">' + (sign ? -1 : 1) + '</span>' +
         '&nbsp;&nbsp;&times;&nbsp;&nbsp;' +
         '<span class="exponent">2<sup>' + exponent + '</sup></span>' +
         '&nbsp;&nbsp;&times;&nbsp;&nbsp;' +
-        '<span class="fraction">' + reduceNumber(fraction) + '</span>' +
-        '<span class="hex">0x' + Array.prototype.map.call(bytes, function(x) { return (x >>> 4).toString(16) + (x & 0xf).toString(16); }).reverse().join('') + '</span>';
+        '<span class="fraction">' + reduceNumber(fraction) + '</span>';
     }
 
     render();
   }
 
-  load(new Float32Array([Math.PI]), 8, document.getElementById('input32'), document.getElementById('output32'), document.getElementById('help32'));
-  load(new Float64Array([Math.PI]), 11, document.getElementById('input64'), document.getElementById('output64'), document.getElementById('help64'));
+  load(new Float32Array([Math.PI]), 8, document.getElementById('input32'), document.getElementById('output32'), document.getElementById('hex32'), document.getElementById('help32'));
+  load(new Float64Array([Math.PI]), 11, document.getElementById('input64'), document.getElementById('output64'), document.getElementById('hex64'), document.getElementById('help64'));
 
 })();
 
